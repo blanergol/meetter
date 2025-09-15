@@ -1,0 +1,79 @@
+<Window x:Class="Meetter.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Meetter" Height="600" Width="900">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="Файл">
+                <MenuItem Header="Настройки" Click="OnOpenSettings" />
+                <Separator/>
+                <MenuItem Header="Выход" Click="OnExit" />
+            </MenuItem>
+            <MenuItem Header="Справка">
+                <MenuItem Header="О программе" Click="OnOpenAbout" />
+            </MenuItem>
+        </Menu>
+        <Grid Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <DockPanel LastChildFill="False">
+                <TextBlock Text="Ближайшие встречи" FontSize="18" FontWeight="Bold" DockPanel.Dock="Left"/>
+                <Button Name="RefreshButton" Content="Обновить" Width="120" Margin="10,0,0,0" Click="OnRefresh" DockPanel.Dock="Right"/>
+            </DockPanel>
+            <Grid Grid.Row="1">
+                <ListView Name="MeetingsList" Margin="0,10,0,0">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Время" Width="160" DisplayMemberBinding="{Binding StartTime}"/>
+                        <GridViewColumn Header="Название" Width="500" DisplayMemberBinding="{Binding Title}"/>
+                        <GridViewColumn Header="Провайдер" Width="140" DisplayMemberBinding="{Binding ProviderType}"/>
+                        <GridViewColumn Header="" Width="110">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="Подключиться" Click="OnJoinMeeting" Tag="{Binding JoinUrl}">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                    </GridView>
+                </ListView.View>
+                <ListView.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.HeaderTemplate>
+                            <DataTemplate>
+                                <Border Background="#FFEFF5FF" BorderBrush="#FF3A78F2" BorderThickness="0,0,0,2" Padding="8" Margin="0,12,0,4">
+                                    <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold"/>
+                                </Border>
+                            </DataTemplate>
+                        </GroupStyle.HeaderTemplate>
+                        <GroupStyle.Panel>
+                            <ItemsPanelTemplate>
+                                <StackPanel />
+                            </ItemsPanelTemplate>
+                        </GroupStyle.Panel>
+                    </GroupStyle>
+                </ListView.GroupStyle>
+                </ListView>
+                <Border Name="LoaderOverlay" Background="#80FFFFFF" Visibility="Collapsed">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <ProgressBar IsIndeterminate="True" Width="220" Height="6"/>
+                        <TextBlock Text="Загрузка встреч..." Margin="0,8,0,0" FontWeight="Bold"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>
+

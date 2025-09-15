@@ -1,0 +1,55 @@
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs and caches
+logs/
+**/*.log
+**/.cache/
+**/.temp/
+
+# Tooling
+coverage/
+TestResults/
+.nyc_output/
+
+# Credentials/tokens (do not commit secrets)
+credentials.json
+**/credentials.json
+*.token
+*.tokens
+*.secret
+
+# Rider/Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+artifacts/
+
+# Node (if any tooling present)
+node_modules/
+package-lock.json
+
+

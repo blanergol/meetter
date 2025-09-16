@@ -7,7 +7,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using Microsoft.Win32;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using MessageBox = System.Windows.MessageBox;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
@@ -24,6 +25,7 @@ public partial class SettingsWindow : Window
 	public SettingsWindow(ISettingsStore store)
 	{
 		InitializeComponent();
+		Icon = IconHelper.CreateWindowIcon();
 		_store = store;
 		Loaded += async (_, __) =>
 		{

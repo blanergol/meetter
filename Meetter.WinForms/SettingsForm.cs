@@ -98,15 +98,20 @@ public sealed class SettingsForm : Form
 
         // General tab
         var tabGeneral = new TabPage("Общие") { Padding = new Padding(12) };
-        var generalLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 2, AutoSize = true };
+        var generalLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, AutoSize = true };
         generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         var lbl = new Label { Text = "Дней показывать:", AutoSize = true, Anchor = AnchorStyles.Left };
         _days = new NumericUpDown { Width = 100, Minimum = 1, Maximum = 7, Value = 3, Anchor = AnchorStyles.Left };
         generalLayout.Controls.Add(lbl, 0, 0);
         generalLayout.Controls.Add(_days, 1, 0);
+        var notifLbl = new Label { Text = "Уведомлять за (мин):", AutoSize = true, Anchor = AnchorStyles.Left };
+        var notifNum = new NumericUpDown { Width = 100, Minimum = 0, Maximum = 120, Value = 5, Anchor = AnchorStyles.Left };
+        generalLayout.Controls.Add(notifLbl, 0, 1);
+        generalLayout.Controls.Add(notifNum, 1, 1);
         tabGeneral.Controls.Add(generalLayout);
 
         tabs.TabPages.Add(tabAccounts);
@@ -133,6 +138,7 @@ public sealed class SettingsForm : Form
         {
             var s = await _store.LoadAsync();
             s.DaysToShow = (int)_days.Value;
+            s.NotifyMinutes = (int)notifNum.Value;
             s.Accounts = _accounts.ToList();
             await _store.SaveAsync(s);
             Close();
@@ -146,6 +152,7 @@ public sealed class SettingsForm : Form
         {
             var s = await _store.LoadAsync();
             _days.Value = Math.Clamp(s.DaysToShow, 1, 7);
+            notifNum.Value = Math.Clamp(s.NotifyMinutes, 0, 120);
             _accounts = s.Accounts.ToList();
             _accountsSource.DataSource = _accounts;
             RefreshAccountsList();

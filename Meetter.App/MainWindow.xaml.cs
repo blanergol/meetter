@@ -10,18 +10,24 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.ComponentModel;
 using System.Windows.Data;
+using WinForms = System.Windows.Forms;
+using MessageBox = System.Windows.MessageBox;
 
 namespace Meetter.App;
 
 public partial class MainWindow : Window
 {
 	private readonly ISettingsStore _settingsStore;
+	private WinForms.NotifyIcon? _tray;
 
 	public MainWindow()
 	{
 		InitializeComponent();
 		_settingsStore = new JsonSettingsStore(PathHelper.GetSettingsPath());
+		Icon = IconHelper.CreateWindowIcon();
 		Loaded += async (_, __) => { await LoadMeetingsAsync(useCache: true); };
+		InitializeTray();
+		Closing += OnClosingToTray;
 	}
 
 	private async Task LoadMeetingsAsync(bool useCache)
@@ -84,6 +90,7 @@ public partial class MainWindow : Window
 		cvs.GroupDescriptions.Clear();
 		cvs.GroupDescriptions.Add(new PropertyGroupDescription("StartTime", new DateOnlyGroupConverter()));
 		MeetingsList.ItemsSource = cvs;
+		UpdateTrayMenu(items);
 	}
 
 	private async void OnRefresh(object sender, RoutedEventArgs e)
@@ -116,6 +123,56 @@ public partial class MainWindow : Window
 	}
 
 	private void OnExit(object sender, RoutedEventArgs e) => Close();
+
+	private void InitializeTray()
+	{
+		_tray = new WinForms.NotifyIcon
+		{
+			Text = "Meetter",
+			Icon = AppIconFactory.CreateIcon(),
+			Visible = true
+		};
+		_tray.DoubleClick += (_, __) =>
+		{
+			Show();
+			WindowState = WindowState.Normal;
+			Activate();
+		};
+		UpdateTrayMenu(Array.Empty<Meeting>());
+	}
+
+	private void OnClosingToTray(object? sender, CancelEventArgs e)
+	{
+		if (_tray != null)
+		{
+			e.Cancel = true;
+			Hide();
+		}
+	}
+
+	private void UpdateTrayMenu(IReadOnlyList<Meeting> meetings)
+	{
+		if (_tray == null) return;
+		var menu = new WinForms.ContextMenuStrip();
+		var today = DateTimeOffset.Now.Date;
+		foreach (var m in meetings.Where(m => m.StartTime.Date == today))
+		{
+			var title = m.Title.Length > 30 ? m.Title.Substring(0, 30) + "…" : m.Title;
+			var mi = new WinForms.ToolStripMenuItem(title) { ToolTipText = m.Title };
+			var url = m.JoinUrl;
+			mi.Click += (_, __) => { if (!string.IsNullOrWhiteSpace(url)) { try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { } } };
+			menu.Items.Add(mi);
+		}
+		if (menu.Items.Count > 0) menu.Items.Add(new WinForms.ToolStripSeparator());
+		var settings = new WinForms.ToolStripMenuItem("Настройки", null, (_, __) => OnOpenSettings(this, new RoutedEventArgs()));
+		var about = new WinForms.ToolStripMenuItem("О программе", null, (_, __) => OnOpenAbout(this, new RoutedEventArgs()));
+		var exit = new WinForms.ToolStripMenuItem("Выход", null, (_, __) => { if (_tray != null) _tray.Visible = false; System.Windows.Application.Current.Shutdown(); });
+		menu.Items.Add(settings);
+		menu.Items.Add(about);
+		menu.Items.Add(new ToolStripSeparator());
+		menu.Items.Add(exit);
+		_tray.ContextMenuStrip = menu;
+	}
 }
 
 internal static class PathHelper

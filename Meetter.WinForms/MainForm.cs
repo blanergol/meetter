@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Drawing;
 
 namespace Meetter.WinForms;
 
@@ -20,12 +21,16 @@ public sealed class MainForm : Form
     private readonly Label _title;
     private readonly ProgressBar _loader;
     private readonly Panel _header;
+    private readonly NotifyIcon _tray;
+    private readonly System.Windows.Forms.Timer _timer;
+    private IReadOnlyList<Meeting> _lastMeetings = Array.Empty<Meeting>();
 
     public MainForm()
     {
         Text = "Meetter";
         Width = 900;
         Height = 600;
+        Icon = AppIconFactory.CreateIcon();
 
         // Menu
         _menu = new MenuStrip { Dock = DockStyle.Top };
@@ -79,6 +84,21 @@ public sealed class MainForm : Form
                 try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
             }
         };
+
+        // Tray icon
+        _tray = new NotifyIcon
+        {
+            Text = "Meetter",
+            Icon = this.Icon,
+            Visible = true
+        };
+        _tray.DoubleClick += (_, __) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
+        FormClosing += (s, e) => { e.Cancel = true; Hide(); };
+
+        // Polling timer for notifications
+        _timer = new System.Windows.Forms.Timer { Interval = 60_000 };
+        _timer.Tick += async (_, __) => await CheckNotificationsAsync();
+        _timer.Start();
     }
 
     private async Task LoadMeetingsAsync(bool useCache)
@@ -131,6 +151,7 @@ public sealed class MainForm : Form
 
     private void BindMeetings(IReadOnlyList<Meeting> items)
     {
+        _lastMeetings = items;
         _list.BeginUpdate();
         _list.Items.Clear();
         // группировка по дням — визуально вставим заголовки-строки
@@ -147,6 +168,64 @@ public sealed class MainForm : Form
             }
         }
         _list.EndUpdate();
+
+        // Update tray menu
+        var menu = new ContextMenuStrip();
+        // today meetings first
+        var today = DateTimeOffset.Now.Date;
+        foreach (var m in items.Where(m => m.StartTime.Date == today))
+        {
+            var title = m.Title.Length > 30 ? m.Title.Substring(0, 30) + "…" : m.Title;
+            var mi = new ToolStripMenuItem(title) { ToolTipText = m.Title };
+            var url = m.JoinUrl;
+            mi.Click += (_, __) => { if (!string.IsNullOrWhiteSpace(url)) { try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { } } };
+            menu.Items.Add(mi);
+        }
+        if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
+        var about = new ToolStripMenuItem("О программе", null, (_, __) => { using var f = new AboutForm(); f.ShowDialog(this); });
+        var settings = new ToolStripMenuItem("Настройки", null, (_, __) => { using var f = new SettingsForm(_settingsStore); if (f.ShowDialog(this) == DialogResult.OK) { _ = LoadMeetingsAsync(false); } });
+        var exit = new ToolStripMenuItem("Выход", null, (_, __) => { try { _tray.Visible = false; } catch { } Application.Exit(); });
+        menu.Items.Add(settings);
+        menu.Items.Add(about);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(exit);
+        _tray.ContextMenuStrip = menu;
+    }
+
+    private async Task CheckNotificationsAsync()
+    {
+        try
+        {
+            var settings = await _settingsStore.LoadAsync();
+            var notifyIn = TimeSpan.FromMinutes(Math.Max(0, settings.NotifyMinutes));
+            var now = DateTimeOffset.Now;
+            foreach (var m in _lastMeetings)
+            {
+                if (string.IsNullOrWhiteSpace(m.JoinUrl)) continue;
+                var delta = m.StartTime - now;
+                if (delta <= notifyIn && delta > TimeSpan.Zero)
+                {
+                    // show toast
+                    ShowToast($"Скоро встреча: {m.Title}", m.JoinUrl!);
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void ShowToast(string title, string url)
+    {
+        // Fallback через balloon tip + быстрый переход по клику
+        _tray.BalloonTipTitle = title.Length > 60 ? title.Substring(0, 60) + "…" : title;
+        _tray.BalloonTipText = "Нажмите, чтобы подключиться";
+        EventHandler? handler = null;
+        handler = (_, __) =>
+        {
+            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
+            _tray.BalloonTipClicked -= handler;
+        };
+        _tray.BalloonTipClicked += handler;
+        _tray.ShowBalloonTip(5000);
     }
 }
 

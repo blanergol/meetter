@@ -19,6 +19,7 @@ public sealed class AppSettings
 {
 	public int DaysToShow { get; set; } = 3; // 1..7
 	public List<EmailAccount> Accounts { get; set; } = new();
+    public int NotifyMinutes { get; set; } = 5; // минуты до встречи для уведомления
 }
 
 public interface ISettingsStore

@@ -6,6 +6,12 @@ using System.Threading.Tasks;
 
 namespace Meetter.Persistence;
 
+public enum AppTheme
+{
+	Light = 0,
+	Dark = 1
+}
+
 public sealed class EmailAccount
 {
 	public required string ProviderId { get; set; } // e.g. "google"
@@ -19,8 +25,10 @@ public sealed class AppSettings
 {
 	public int DaysToShow { get; set; } = 3; // 1..7
 	public List<EmailAccount> Accounts { get; set; } = new();
-    public int NotifyMinutes { get; set; } = 5; // минуты до встречи для уведомления
-	public bool AutoStart { get; set; } = false; // запускать приложение при старте Windows
+	public int NotifyMinutes { get; set; } = 5; // minutes before meeting to notify
+	public bool AutoStart { get; set; } = false; // run application at Windows startup
+	public bool QuietOnAutoStart { get; set; } = true; // start minimized to tray on Windows startup
+	public AppTheme Theme { get; set; } = AppTheme.Light;
 }
 
 public interface ISettingsStore

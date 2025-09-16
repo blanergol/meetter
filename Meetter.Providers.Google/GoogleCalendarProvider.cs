@@ -35,13 +35,7 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
 	public async Task<IReadOnlyList<Meeting>> FetchMeetingsAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
 	{
 		UserCredential credential;
-		var credsPath = _credentialsPath;
-		if (!Path.IsPathRooted(credsPath))
-		{
-			credsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, credsPath);
-		}
-		await using var credentialsStream = new FileStream(credsPath, FileMode.Open, FileAccess.Read);
-		var secrets = GoogleClientSecrets.FromStream(credentialsStream).Secrets;
+		ClientSecrets secrets = GoogleOAuthConfig.GetClientSecrets();
 		credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
 			secrets, new[] { CalendarService.Scope.CalendarReadonly }, "user", cancellationToken,
 			new FileDataStore(_tokenPath, true));
@@ -54,7 +48,7 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
 
 		var list = new List<Meeting>();
 		Logger.Info($"Google: start fetch tokenPath={_tokenPath}");
-		// Собираем все календари пользователя
+		// Collect all user calendars
 		var calendars = await service.CalendarList.List().ExecuteAsync(cancellationToken);
 		var calendarIds = (calendars.Items ?? new List<CalendarListEntry>()).Select(c => c.Id).Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
 		Logger.Info($"Google: calendars={calendarIds.Count}");
@@ -111,13 +105,13 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
 				if (string.IsNullOrWhiteSpace(joinUrl))
 				{
 					Logger.Info($"Google: skip event without link id={ev.Id} cal={calId}");
-					// если ссылки не найдено — пропускаем, чтобы на главной были только встречаемые с провайдерами
+					// if no link found — skip so main list shows only meetings with providers
 					continue;
 				}
 				list.Add(new Meeting
 				{
 					Id = ev.Id ?? Guid.NewGuid().ToString("N"),
-					Title = string.IsNullOrWhiteSpace(ev.Summary) ? "(без названия)" : ev.Summary,
+					Title = string.IsNullOrWhiteSpace(ev.Summary) ? "(untitled)" : ev.Summary,
 					StartTime = start.Value,
 					EndTime = end,
 					JoinUrl = joinUrl,

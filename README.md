@@ -1,10 +1,9 @@
-# Meetter (.NET 9, WinForms + WPF)
+# Meetter (.NET 9, WinForms)
 
 Windows application that aggregates meetings from calendars (Google Calendar, others later), extracts Google Meet/Zoom links, and displays them in a convenient list.
 
 ## Projects
 - `Meetter.WinForms` — main application (WinForms UI)
-- `Meetter.App` — alternative WPF UI
 - `Meetter.Core` — models/interfaces/link detectors
 - `Meetter.Persistence` — settings and cache
 - `Meetter.Providers.Google` — Google Calendar provider (OAuth)
@@ -17,7 +16,7 @@ dotnet workload install windowsdesktop
 ```
 - Build and run from a regular path on the Windows drive (e.g., `C:\dev\meetter`), not from `\\wsl$`.
 
-## Build and publish (WinForms)
+## Build and publish
 ```powershell
 # In the solution folder
 dotnet restore
@@ -32,19 +31,26 @@ dotnet publish Meetter.WinForms -c Release -r win-x64 --self-contained true `
 C:\Apps\Meetter\Meetter.WinForms.exe
 ```
 
-WPF publishing (if needed):
-```powershell
-dotnet publish Meetter.App -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:PublishReadyToRun=true -p:DebugType=none `
-  -o C:\Apps\Meetter.Wpf
+## Google OAuth secrets
+Build now generates `GoogleSecrets.g.cs` from environment variables. Set them before build/publish:
+
+```bash
+export GOOGLE_CLIENT_ID="<your_client_id>"
+export GOOGLE_CLIENT_SECRET="<your_client_secret>"
 ```
 
+Then build/publish as usual:
+
+```bash
+dotnet build
+dotnet publish Meetter.WinForms -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+```
+
+If variables are not set, values will be empty and authorization will fail.
+
 ## First run
-1. Create an OAuth 2.0 Client ID (Desktop App) in Google Cloud and download `credentials.json`.
-2. Place `credentials.json` next to the exe. If the file is missing, the app will prompt you to select it when adding an account.
-3. Open Settings → Accounts tab → Add Google account. A browser will open for authorization.
-4. The token will be saved to `%APPDATA%/Meetter/google/<email>`.
+1. Open Settings → Accounts tab → Add Google account. A browser will open for authorization (OAuth Desktop + PKCE).
+2. The refresh token will be saved to `%APPDATA%/Meetter/google/<email>` and used automatically next time.
 
 ## Settings
 File: `%APPDATA%/Meetter/settings.json`
@@ -58,7 +64,6 @@ File: `%APPDATA%/Meetter/settings.json`
       "displayName": "user@example.com",
       "enabled": true,
       "properties": {
-        "credentialsPath": "credentials.json",
         "tokenPath": "%APPDATA%/Meetter/google/user@example.com"
       }
     }
@@ -76,7 +81,7 @@ File: `%APPDATA%/Meetter/settings.json`
 - Clicking a meeting opens the link in the browser/client.
 
 ## Troubleshooting
-- For the “Calendar API disabled/Forbidden” error: enable Google Calendar API for the project your `credentials.json` belongs to, wait 2–5 minutes, and sign in again.
+- For the “Calendar API disabled/Forbidden” error: enable Google Calendar API for the GCP project used by the app, wait 2–5 minutes, and sign in again.
 - To re-authorize, delete the token folder `%APPDATA%/Meetter/google/<email>` and add the account again.
 - For the “file in use” error during publishing: close the running exe or publish to a new folder (`-o C:\Apps\Meetter-<timestamp>`).
 

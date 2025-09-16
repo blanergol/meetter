@@ -11,8 +11,37 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.68.0.3466" />
+    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.68.0.3473" />
     <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
   </ItemGroup>
+
+  <Target Name="GenerateGoogleSecrets" BeforeTargets="BeforeCompile">
+    <PropertyGroup>
+      <GoogleClientId>$(GOOGLE_CLIENT_ID)</GoogleClientId>
+      <GoogleClientSecret>$(GOOGLE_CLIENT_SECRET)</GoogleClientSecret>
+      <SecretsDir>$(IntermediateOutputPath)Generated\</SecretsDir>
+      <SecretsFile>$(SecretsDir)GoogleSecrets.g.cs</SecretsFile>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(SecretsDir)" />
+
+    <ItemGroup>
+      <_GeneratedSecretsLines Include="// auto-generated" />
+      <_GeneratedSecretsLines Include="namespace Meetter.Providers.Google" />
+      <_GeneratedSecretsLines Include="{" />
+      <_GeneratedSecretsLines Include="internal static class GoogleSecrets" />
+      <_GeneratedSecretsLines Include="{" />
+      <_GeneratedSecretsLines Include="    internal const string ClientId = &quot;$(GoogleClientId)&quot;%3B" />
+      <_GeneratedSecretsLines Include="    internal const string ClientSecret = &quot;$(GoogleClientSecret)&quot;%3B" />
+      <_GeneratedSecretsLines Include="}" />
+      <_GeneratedSecretsLines Include="}" />
+    </ItemGroup>
+
+    <WriteLinesToFile File="$(SecretsFile)" Overwrite="true" Lines="@(_GeneratedSecretsLines)" />
+
+    <ItemGroup>
+      <Compile Include="$(SecretsFile)" Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>

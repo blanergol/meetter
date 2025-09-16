@@ -18,12 +18,13 @@ public sealed class MainForm : Form
     private readonly MenuStrip _menu;
     private readonly ListView _list;
     private readonly Button _refresh;
-    private readonly Label _title;
     private readonly ProgressBar _loader;
     private readonly Panel _header;
     private readonly NotifyIcon _tray;
     private readonly System.Windows.Forms.Timer _timer;
     private IReadOnlyList<Meeting> _lastMeetings = Array.Empty<Meeting>();
+    private readonly HashSet<string> _notifiedMeetings = new HashSet<string>(StringComparer.Ordinal);
+    private DateTimeOffset _lastRefreshUtc = DateTimeOffset.MinValue;
 
     public MainForm()
     {
@@ -31,12 +32,13 @@ public sealed class MainForm : Form
         Width = 900;
         Height = 600;
         Icon = AppIconFactory.CreateIcon();
+        try { AppLogger.Info("MainForm ctor"); } catch { }
         _settingsStore = new JsonSettingsStore(PathHelper.GetSettingsPath());
 
         // Menu
         _menu = new MenuStrip { Dock = DockStyle.Top };
-        var file = new ToolStripMenuItem("Файл");
-        var settingsItem = new ToolStripMenuItem("Настройки", null, (_, __) =>
+        var file = new ToolStripMenuItem("File");
+        var settingsItem = new ToolStripMenuItem("Settings", null, (_, __) =>
         {
             using var f = new SettingsForm(_settingsStore);
             if (f.ShowDialog(this) == DialogResult.OK)
@@ -44,43 +46,43 @@ public sealed class MainForm : Form
                 _ = LoadMeetingsAsync(false);
             }
         });
-        var exitItem = new ToolStripMenuItem("Выход", null, (_, __) => Close());
+        var exitItem = new ToolStripMenuItem("Exit", null, (_, __) => Close());
         file.DropDownItems.Add(settingsItem);
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add(exitItem);
 
-        var help = new ToolStripMenuItem("Справка");
-        var aboutItem = new ToolStripMenuItem("О программе", null, (_, __) => { using var f = new AboutForm(); f.ShowDialog(this); });
+        var help = new ToolStripMenuItem("Help");
+        var logItem = new ToolStripMenuItem("Logging", null, (_, __) => { try { using var f = new LogViewerForm(); f.ShowDialog(this); } catch { } });
+        var aboutItem = new ToolStripMenuItem("About", null, (_, __) => { using var f = new AboutForm(); f.ShowDialog(this); });
+        help.DropDownItems.Add(logItem);
         help.DropDownItems.Add(aboutItem);
         _menu.Items.Add(file);
         _menu.Items.Add(help);
         MainMenuStrip = _menu;
 
-        // Header panel
-        _header = new Panel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(10, 8, 10, 8) };
-        _title = new Label { Text = "Ближайшие встречи", AutoSize = true, Dock = DockStyle.Left, Font = new System.Drawing.Font("Segoe UI", 12, System.Drawing.FontStyle.Bold) };
-        _refresh = new Button { Text = "Обновить", Width = 120, Dock = DockStyle.Right };
-        _refresh.Click += async (_, __) => await LoadMeetingsAsync(false);
-        _loader = new ProgressBar { Style = ProgressBarStyle.Marquee, Width = 200, Dock = DockStyle.Right, Visible = false, Margin = new Padding(8, 0, 8, 0) };
+        // Header panel (flow to keep controls visible on high DPI)
+        _header = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(10, 8, 10, 8), FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
+        _refresh = new Button { Text = "Refresh", AutoSize = true, Margin = new Padding(8, 0, 0, 0) };
+        _refresh.Click += async (_, __) => { try { AppLogger.Debug("Manual refresh clicked"); } catch { } await LoadMeetingsAsync(false); };
+        _loader = new ProgressBar { Style = ProgressBarStyle.Marquee, Width = 200, Visible = false, Margin = new Padding(8, 3, 8, 3) };
         _header.Controls.Add(_refresh);
         _header.Controls.Add(_loader);
-        _header.Controls.Add(_title);
 
         // List
         _list = new ListView { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true };
-        _list.Columns.Add("Время", 160);
-        _list.Columns.Add("Название", 500);
-        _list.Columns.Add("Провайдер", 140);
+        _list.Columns.Add("Time", 160);
+        _list.Columns.Add("Title", 500);
+        _list.Columns.Add("Provider", 140);
 
         Controls.Add(_list);
         Controls.Add(_header);
         Controls.Add(_menu);
-        Shown += async (_, __) => await LoadMeetingsAsync(true);
+        _ = LoadMeetingsAsync(true);
         _list.DoubleClick += (_, __) =>
         {
             if (_list.SelectedItems.Count == 1 && _list.SelectedItems[0].Tag is string url && !string.IsNullOrWhiteSpace(url))
             {
-                try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
+                try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); AppLogger.Info($"Open link: {url}"); } catch (Exception ex) { try { AppLogger.Error("Open link failed", ex); } catch { } }
             }
         };
 
@@ -91,12 +93,23 @@ public sealed class MainForm : Form
             Icon = this.Icon,
             Visible = true
         };
-        _tray.DoubleClick += (_, __) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
-        FormClosing += (s, e) => { e.Cancel = true; Hide(); };
+        _tray.DoubleClick += (_, __) => { Show(); ShowInTaskbar = true; WindowState = FormWindowState.Normal; Activate(); };
+        FormClosing += (s, e) => { e.Cancel = true; Hide(); try { AppLogger.Info("MainForm hide to tray"); } catch { } };
 
-        // Polling timer for notifications
-        _timer = new System.Windows.Forms.Timer { Interval = 60_000 };
-        _timer.Tick += async (_, __) => await CheckNotificationsAsync();
+        // Polling timer for notifications and tray updates
+        _timer = new System.Windows.Forms.Timer { Interval = 30_000 };
+        _timer.Tick += async (_, __) =>
+        {
+            try { AppLogger.Debug("Timer tick"); } catch { }
+            await CheckNotificationsAsync();
+            UpdateTrayRemaining(DateTimeOffset.Now);
+            BuildTrayMenu(DateTimeOffset.Now);
+            // Periodic background refresh (without cache) to include newly added meetings
+            if (DateTimeOffset.UtcNow - _lastRefreshUtc > TimeSpan.FromMinutes(5))
+            {
+                await LoadMeetingsAsync(false);
+            }
+        };
         _timer.Start();
     }
 
@@ -104,6 +117,7 @@ public sealed class MainForm : Form
     {
         try
         {
+            try { AppLogger.Info($"LoadMeetings start (useCache={useCache})"); } catch { }
             _loader.Visible = true;
             _refresh.Enabled = false;
             var settings = await _settingsStore.LoadAsync();
@@ -113,9 +127,8 @@ public sealed class MainForm : Form
             {
                 if (acc.ProviderId == GoogleCalendarProvider.ProviderKey)
                 {
-                    var creds = acc.Properties.TryGetValue("credentialsPath", out var cp) ? cp : "credentials.json";
                     var token = acc.Properties.TryGetValue("tokenPath", out var tp) ? tp : System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Meetter", "google", acc.Email);
-                    providers.Add(new GoogleCalendarProvider(detectors, "Meetter", creds, token));
+                    providers.Add(new GoogleCalendarProvider(detectors, "Meetter", string.Empty, token));
                 }
             }
             var aggregator = new MeetingsAggregator(providers);
@@ -126,23 +139,27 @@ public sealed class MainForm : Form
             if (useCache)
             {
                 var (hit, cached) = await cache.TryReadAsync(from, to);
-                if (hit) { items = cached; }
-                else { items = await aggregator.GetMeetingsAsync(from, to, CancellationToken.None); await cache.WriteAsync(from, to, items); }
+                if (hit) { items = cached; try { AppLogger.Debug($"Cache hit: {cached.Count} items"); } catch { } }
+                else { items = await aggregator.GetMeetingsAsync(from, to, CancellationToken.None); try { AppLogger.Debug($"Fetched: {items.Count} items"); } catch { } await cache.WriteAsync(from, to, items); }
             }
             else
             {
                 items = await aggregator.GetMeetingsAsync(from, to, CancellationToken.None);
+                try { AppLogger.Debug($"Fetched (no cache): {items.Count} items"); } catch { }
                 await cache.WriteAsync(from, to, items);
             }
 
             BindMeetings(items);
+            _lastRefreshUtc = DateTimeOffset.UtcNow;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Ошибка загрузки", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            try { AppLogger.Error("LoadMeetings failed", ex); } catch { }
+            MessageBox.Show(ex.Message, "Load error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
+            try { AppLogger.Info("LoadMeetings end"); } catch { }
             _loader.Visible = false;
             _refresh.Enabled = true;
         }
@@ -153,15 +170,16 @@ public sealed class MainForm : Form
         _lastMeetings = items;
         _list.BeginUpdate();
         _list.Items.Clear();
-        // группировка по дням — визуально вставим заголовки-строки
+        // Group by dates — insert visual header rows
         var now = DateTimeOffset.Now;
         var groups = items.GroupBy(m => m.StartTime.Date).OrderBy(g => g.Key);
         foreach (var g in groups)
         {
             var dayMeetings = g.Key == now.Date ? g.Where(m => m.StartTime >= now).ToList() : g.ToList();
             if (dayMeetings.Count == 0) continue;
-            var header = g.Key == now.Date ? "Сегодня" : g.Key.ToString("dddd, dd.MM.yyyy");
+            var header = g.Key == now.Date ? "Today" : g.Key.ToString("dddd, dd.MM.yyyy");
             var groupItem = new ListViewItem(new[] { header, "", "" }) { BackColor = System.Drawing.Color.FromArgb(0xEF, 0xF5, 0xFF) };
+            groupItem.Font = new Font(_list.Font, FontStyle.Bold);
             _list.Items.Add(groupItem);
             foreach (var m in dayMeetings)
             {
@@ -171,53 +189,9 @@ public sealed class MainForm : Form
         }
         _list.EndUpdate();
 
-        // Update tray menu
-        var menu = new ContextMenuStrip();
-        // today meetings first
-        var today = now.Date;
-        var upcoming = items.Where(m => m.StartTime > now).OrderBy(m => m.StartTime).FirstOrDefault();
-        foreach (var m in items.Where(m => m.StartTime.Date == today && m.StartTime > now))
-        {
-            var title = m.Title.Length > 30 ? m.Title.Substring(0, 30) + "…" : m.Title;
-            var display = title;
-            var isUpcoming = upcoming != null && object.ReferenceEquals(m, upcoming);
-            if (isUpcoming)
-            {
-                var remaining = FormatRemaining(m.StartTime - now);
-                display = $"{title} ({remaining})";
-            }
-            var mi = new ToolStripMenuItem(display) { ToolTipText = m.Title };
-            var url = m.JoinUrl;
-            mi.Click += (_, __) => { if (!string.IsNullOrWhiteSpace(url)) { try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { } } };
-            if (isUpcoming)
-            {
-                var remaining = FormatRemaining(m.StartTime - now);
-                mi.Tag = new BoldParts { Left = title + " ", Right = "(" + remaining + ")" };
-            }
-            menu.Items.Add(mi);
-        }
-        if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
-        var about = new ToolStripMenuItem("О программе", null, (_, __) => { using var f = new AboutForm(); f.ShowDialog(this); });
-        var settings = new ToolStripMenuItem("Настройки", null, (_, __) => { using var f = new SettingsForm(_settingsStore); if (f.ShowDialog(this) == DialogResult.OK) { _ = LoadMeetingsAsync(false); } });
-        var exit = new ToolStripMenuItem("Выход", null, (_, __) => { try { _tray.Visible = false; } catch { } Application.Exit(); });
-        menu.Items.Add(settings);
-        menu.Items.Add(about);
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(exit);
-        // Renderer, который рисует текст в скобках полужирным (для ближайшей встречи)
-        menu.Renderer = new BoldParenRenderer();
-        _tray.ContextMenuStrip = menu;
-
-        // Update tray tooltip with nearest meeting time left
-        if (upcoming != null)
-        {
-            var remaining = FormatRemaining(upcoming.StartTime - now);
-            _tray.Text = $"Meetter — {remaining} до встречи";
-        }
-        else
-        {
-            _tray.Text = "Meetter";
-        }
+        // Build tray menu and initial tooltip
+        BuildTrayMenu(now);
+        UpdateTrayRemaining(now);
     }
 
     private async Task CheckNotificationsAsync()
@@ -231,10 +205,13 @@ public sealed class MainForm : Form
             {
                 if (string.IsNullOrWhiteSpace(m.JoinUrl)) continue;
                 var delta = m.StartTime - now;
+                var key = $"{m.Title}|{m.StartTime.ToUnixTimeSeconds()}";
+                if (_notifiedMeetings.Contains(key)) continue;
                 if (delta <= notifyIn && delta > TimeSpan.Zero)
                 {
                     // show toast
-                    ShowToast($"Скоро встреча: {m.Title}", m.JoinUrl!);
+                    ShowToast($"Upcoming meeting: {m.Title}", m.JoinUrl!);
+                    _notifiedMeetings.Add(key);
                 }
             }
         }
@@ -243,9 +220,9 @@ public sealed class MainForm : Form
 
     private void ShowToast(string title, string url)
     {
-        // Fallback через balloon tip + быстрый переход по клику
+        // Fallback via balloon tip + quick click to join
         _tray.BalloonTipTitle = title.Length > 60 ? title.Substring(0, 60) + "…" : title;
-        _tray.BalloonTipText = "Нажмите, чтобы подключиться";
+        _tray.BalloonTipText = "Click to join";
         EventHandler? handler = null;
         handler = (_, __) =>
         {
@@ -258,13 +235,64 @@ public sealed class MainForm : Form
 
     private static string FormatRemaining(TimeSpan delta)
     {
-        if (delta.TotalSeconds < 1) return "0 мин";
+        if (delta.TotalSeconds < 1) return "0 min";
         var days = (int)delta.TotalDays;
         var hours = delta.Hours;
         var minutes = delta.Minutes;
-        if (days > 0) return hours > 0 ? $"{days} д {hours} ч" : $"{days} д";
-        if (hours > 0) return minutes > 0 ? $"{hours} ч {minutes} мин" : $"{hours} ч";
-        return minutes <= 0 ? "< 1 мин" : $"{minutes} мин";
+        if (days > 0) return hours > 0 ? $"{days} d {hours} h" : $"{days} d";
+        if (hours > 0) return minutes > 0 ? $"{hours} h {minutes} min" : $"{hours} h";
+        return minutes <= 0 ? "< 1 min" : $"{minutes} min";
+    }
+
+    private void BuildTrayMenu(DateTimeOffset now)
+    {
+        var menu = new ContextMenuStrip();
+        var today = now.Date;
+        var upcoming = _lastMeetings.Where(m => m.StartTime > now).OrderBy(m => m.StartTime).FirstOrDefault();
+        foreach (var m in _lastMeetings.Where(m => m.StartTime.Date == today && m.StartTime > now))
+        {
+            var title = m.Title.Length > 30 ? m.Title.Substring(0, 30) + "…" : m.Title;
+            var isUpcoming = upcoming != null && ReferenceEquals(m, upcoming);
+            var remaining = isUpcoming ? FormatRemaining(m.StartTime - now) : null;
+            var display = isUpcoming && remaining != null ? $"{title} ({remaining})" : title;
+            var mi = new ToolStripMenuItem(display) { ToolTipText = m.Title };
+            var url = m.JoinUrl;
+            mi.Click += (_, __) => { if (!string.IsNullOrWhiteSpace(url)) { try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { } } };
+            if (isUpcoming && remaining != null)
+            {
+                mi.Tag = new BoldParts { Left = title + " ", Right = "(" + remaining + ")" };
+            }
+            menu.Items.Add(mi);
+        }
+        if (menu.Items.Count > 0) menu.Items.Add(new ToolStripSeparator());
+        var about = new ToolStripMenuItem("About", null, (_, __) => { using var f = new AboutForm(); f.ShowDialog(this); });
+        var settings = new ToolStripMenuItem("Settings", null, async (_, __) => { using var f = new SettingsForm(_settingsStore); if (f.ShowDialog(this) == DialogResult.OK) { await LoadMeetingsAsync(false); } });
+        var exit = new ToolStripMenuItem("Exit", null, (_, __) => { try { _tray.Visible = false; } catch { } Application.Exit(); });
+        menu.Items.Add(settings);
+        menu.Items.Add(about);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(exit);
+        menu.Renderer = new BoldParenRenderer();
+        menu.Opening += (_, __) => { BuildTrayMenu(DateTimeOffset.Now); };
+        _tray.ContextMenuStrip = menu;
+    }
+
+    private void UpdateTrayRemaining(DateTimeOffset now)
+    {
+        try
+        {
+            var upcoming = _lastMeetings.Where(m => m.StartTime > now).OrderBy(m => m.StartTime).FirstOrDefault();
+            if (upcoming != null)
+            {
+                var remaining = FormatRemaining(upcoming.StartTime - now);
+                _tray.Text = $"Meetter — через {remaining} до встречи";
+            }
+            else
+            {
+                _tray.Text = "Meetter";
+            }
+        }
+        catch { _tray.Text = "Meetter"; }
     }
 
     private sealed class BoldParenRenderer : ToolStripProfessionalRenderer
@@ -280,7 +308,7 @@ public sealed class MainForm : Form
             var right = parts.Right ?? string.Empty;
             var flags = TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
 
-            // базовый цвет учитывает выделение
+            // base color respects selection highlight
             var color = e.TextColor;
             var x = e.TextRectangle.Left;
             var y = e.TextRectangle.Top + (e.TextRectangle.Height - e.TextFont.Height) / 2;

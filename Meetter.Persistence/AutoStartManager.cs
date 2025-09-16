@@ -20,7 +20,7 @@ public static class AutoStartManager
             var value = key.GetValue(AppName) as string;
             if (string.IsNullOrWhiteSpace(value)) return false;
             var exePath = Environment.ProcessPath ?? string.Empty;
-            // значения могут быть в кавычках
+            // values may be quoted
             return Normalize(value).StartsWith(Normalize(exePath), StringComparison.OrdinalIgnoreCase);
         }
         catch
@@ -30,7 +30,7 @@ public static class AutoStartManager
     }
 
     [SupportedOSPlatform("windows")]
-    public static void SetAutoStart(bool enabled)
+    public static void SetAutoStart(bool enabled, bool quiet = true)
     {
         if (!OperatingSystem.IsWindows()) return;
         try
@@ -42,8 +42,9 @@ public static class AutoStartManager
             {
                 var exePath = Environment.ProcessPath ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(exePath)) return;
-                // Кавычки на случай пробелов в пути
-                key.SetValue(AppName, $"\"{exePath}\"");
+                // Quotes in case the path contains spaces
+                var args = quiet ? " --autostart" : string.Empty;
+                key.SetValue(AppName, $"\"{exePath}\"{args}");
             }
             else
             {
@@ -52,7 +53,7 @@ public static class AutoStartManager
         }
         catch
         {
-            // проглатываем, чтобы UI не падал — настройка сохранится, пользователь сможет повторить
+            // swallow exceptions to keep UI stable — setting persists and user can retry
         }
     }
 

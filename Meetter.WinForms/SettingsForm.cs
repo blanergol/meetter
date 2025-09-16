@@ -30,7 +30,7 @@ public sealed class SettingsForm : Form
     public SettingsForm(ISettingsStore store)
     {
         _store = store;
-        Text = "Настройки";
+        Text = "Settings";
         StartPosition = FormStartPosition.CenterParent;
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Segoe UI", 9F);
@@ -48,7 +48,7 @@ public sealed class SettingsForm : Form
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        // Контентная строка занимает всё пространство, нижняя — автосайз для кнопок
+        // Content row consumes all space, bottom row is autosize for buttons
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
@@ -56,12 +56,12 @@ public sealed class SettingsForm : Form
         var tabs = new TabControl { Dock = DockStyle.Fill };
 
         // Accounts tab
-        var tabAccounts = new TabPage("Аккаунты") { Padding = new Padding(6) };
+        var tabAccounts = new TabPage("Accounts") { Padding = new Padding(6) };
         var accLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, AutoSize = false };
         accLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         accLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        // Список аккаунтов через ListView (легче адаптируется по DPI)
+        // Accounts via ListView (adapts better for DPI)
         _accountsList = new ListView
         {
             Dock = DockStyle.Fill,
@@ -70,10 +70,10 @@ public sealed class SettingsForm : Form
             GridLines = true,
             CheckBoxes = true
         };
-        _accountsList.Columns.Add("Вкл.", 60);
-        _accountsList.Columns.Add("Провайдер", 120);
+        _accountsList.Columns.Add("On", 60);
+        _accountsList.Columns.Add("Provider", 120);
         _accountsList.Columns.Add("Email", 260);
-        _accountsList.Columns.Add("Имя", 220);
+        _accountsList.Columns.Add("Name", 220);
         _accountsList.ItemChecked += (_, e) =>
         {
             var idx = e.Item.Index;
@@ -85,8 +85,8 @@ public sealed class SettingsForm : Form
         // no inline edit panel; selection change not used
 
         var accButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Padding = new Padding(0, 8, 0, 0) };
-        _addGoogleBtn = new Button { Text = "Добавить Google аккаунт", AutoSize = true };
-        _removeBtn = new Button { Text = "Удалить", AutoSize = true };
+        _addGoogleBtn = new Button { Text = "Add Google account", AutoSize = true };
+        _removeBtn = new Button { Text = "Remove", AutoSize = true };
         _addGoogleBtn.Click += async (_, __) => await OnAddGoogleAccountAsync();
         _removeBtn.Click += (_, __) => OnRemoveAccount();
         accButtons.Controls.Add(_removeBtn);
@@ -94,30 +94,34 @@ public sealed class SettingsForm : Form
         accLayout.Controls.Add(_accountsList, 0, 0);
         accLayout.Controls.Add(accButtons, 0, 1);
 
-        // панель редактирования имени убрана по требованию
+        // name edit panel removed per requirement
         tabAccounts.Controls.Add(accLayout);
 
         // General tab
-        var tabGeneral = new TabPage("Общие") { Padding = new Padding(12) };
-        var generalLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 4, AutoSize = true };
+        var tabGeneral = new TabPage("General") { Padding = new Padding(12) };
+        var generalLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 5, AutoSize = true };
         generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        var lbl = new Label { Text = "Дней показывать:", AutoSize = true, Anchor = AnchorStyles.Left };
+        var quietLbl = new Label { Text = "Start minimized on Windows startup:", AutoSize = true, Anchor = AnchorStyles.Left };
+        var quietChk = new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left };
+        var lbl = new Label { Text = "Days to show:", AutoSize = true, Anchor = AnchorStyles.Left };
         _days = new NumericUpDown { Width = 100, Minimum = 1, Maximum = 7, Value = 3, Anchor = AnchorStyles.Left };
         generalLayout.Controls.Add(lbl, 0, 0);
         generalLayout.Controls.Add(_days, 1, 0);
-        var notifLbl = new Label { Text = "Уведомлять за (мин):", AutoSize = true, Anchor = AnchorStyles.Left };
+        var notifLbl = new Label { Text = "Notify before (min):", AutoSize = true, Anchor = AnchorStyles.Left };
         var notifNum = new NumericUpDown { Width = 100, Minimum = 0, Maximum = 120, Value = 5, Anchor = AnchorStyles.Left };
         generalLayout.Controls.Add(notifLbl, 0, 1);
         generalLayout.Controls.Add(notifNum, 1, 1);
-        var autoLbl = new Label { Text = "Запускать при старте Windows:", AutoSize = true, Anchor = AnchorStyles.Left };
+        var autoLbl = new Label { Text = "Run at Windows startup:", AutoSize = true, Anchor = AnchorStyles.Left };
         _autoStart = new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left };
         generalLayout.Controls.Add(autoLbl, 0, 2);
         generalLayout.Controls.Add(_autoStart, 1, 2);
+        generalLayout.Controls.Add(quietLbl, 0, 3);
+        generalLayout.Controls.Add(quietChk, 1, 3);
         tabGeneral.Controls.Add(generalLayout);
 
         tabs.TabPages.Add(tabAccounts);
@@ -131,8 +135,8 @@ public sealed class SettingsForm : Form
             AutoSize = true,
             Padding = new Padding(0, 12, 0, 0)
         };
-        _ok = new Button { Text = "Сохранить", DialogResult = DialogResult.OK, AutoSize = true };
-        _cancel = new Button { Text = "Отмена", DialogResult = DialogResult.Cancel, AutoSize = true };
+        _ok = new Button { Text = "Save", DialogResult = DialogResult.OK, AutoSize = true };
+        _cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
         buttons.Controls.Add(_cancel);
         buttons.Controls.Add(_ok);
         root.SetColumnSpan(buttons, 2);
@@ -147,8 +151,9 @@ public sealed class SettingsForm : Form
             s.NotifyMinutes = (int)notifNum.Value;
             s.Accounts = _accounts.ToList();
             s.AutoStart = _autoStart.Checked;
+            s.QuietOnAutoStart = quietChk.Checked;
             await _store.SaveAsync(s);
-            try { AutoStartManager.SetAutoStart(s.AutoStart); } catch { }
+            try { AutoStartManager.SetAutoStart(s.AutoStart, s.QuietOnAutoStart); } catch { }
             Close();
         };
 
@@ -162,6 +167,7 @@ public sealed class SettingsForm : Form
             _days.Value = Math.Clamp(s.DaysToShow, 1, 7);
             notifNum.Value = Math.Clamp(s.NotifyMinutes, 0, 120);
             _autoStart.Checked = s.AutoStart || AutoStartManager.IsEnabled();
+            quietChk.Checked = s.QuietOnAutoStart;
             _accounts = s.Accounts.ToList();
             _accountsSource.DataSource = _accounts;
             RefreshAccountsList();
@@ -172,28 +178,14 @@ public sealed class SettingsForm : Form
     {
         try
         {
-            // credentials.json рядом с exe, иначе спросим
-            string credentialsPath;
-            var exeCreds = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "credentials.json");
-            if (File.Exists(exeCreds)) credentialsPath = exeCreds;
-            else
-            {
-                using var dlg = new OpenFileDialog { Title = "Выберите credentials.json", Filter = "JSON (*.json)|*.json|Все файлы (*.*)|*.*", FileName = "credentials.json" };
-                if (dlg.ShowDialog(this) != DialogResult.OK) return;
-                credentialsPath = dlg.FileName;
-            }
-
             var tempTokenDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Meetter", "google-temp-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempTokenDir);
 
             UserCredential credential;
-            await using (var stream = new FileStream(credentialsPath, FileMode.Open, FileAccess.Read))
-            {
-                var secrets = GoogleClientSecrets.FromStream(stream).Secrets;
-                credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    secrets, new[] { CalendarService.Scope.CalendarReadonly }, "user", CancellationToken.None,
-                    new FileDataStore(tempTokenDir, true));
-            }
+            var secrets = GoogleOAuthConfig.GetClientSecrets();
+            credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                secrets, new[] { CalendarService.Scope.CalendarReadonly }, "user", CancellationToken.None,
+                new FileDataStore(tempTokenDir, true));
 
             using var service = new CalendarService(new BaseClientService.Initializer
             {
@@ -204,7 +196,7 @@ public sealed class SettingsForm : Form
             var primary = list.Items?.FirstOrDefault(i => i.Primary == true) ?? list.Items?.FirstOrDefault();
             if (primary == null || string.IsNullOrWhiteSpace(primary.Id))
             {
-                MessageBox.Show(this, "Не удалось определить email аккаунта", "Добавление аккаунта", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Failed to determine account email", "Add account", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             var email = primary.Id;
@@ -215,7 +207,7 @@ public sealed class SettingsForm : Form
 
             if (_accounts.Any(a => a.ProviderId == GoogleCalendarProvider.ProviderKey && a.Email.Equals(email, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show(this, "Этот аккаунт уже добавлен", "Добавление аккаунта", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, "This account is already added", "Add account", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             _accounts.Add(new EmailAccount
@@ -224,13 +216,14 @@ public sealed class SettingsForm : Form
                 Email = email,
                 DisplayName = email,
                 Enabled = true,
-                Properties = { ["credentialsPath"] = credentialsPath, ["tokenPath"] = finalTokenDir }
+                Properties = { ["tokenPath"] = finalTokenDir }
             });
             _accountsSource.ResetBindings(false);
+            RefreshAccountsList();
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "Ошибка добавления аккаунта", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, ex.Message, "Failed to add account", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

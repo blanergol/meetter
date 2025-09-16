@@ -1,101 +1,108 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
+using Meetter.Core;
 
 namespace Meetter.Persistence;
 
 public enum AppTheme
 {
-	Light = 0,
-	Dark = 1
+    Light = 0,
+    Dark = 1
 }
 
 public sealed class EmailAccount
 {
-	public required string ProviderId { get; set; } // e.g. "google"
-	public required string Email { get; set; }
-	public string DisplayName { get; set; } = string.Empty;
-	public bool Enabled { get; set; } = true;
-	public Dictionary<string, string> Properties { get; set; } = new();
+    public required string ProviderId { get; set; } // e.g. "google"
+    public required string Email { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
+    public bool Enabled { get; set; } = true;
+    public Dictionary<string, string> Properties { get; set; } = new();
 }
 
 public sealed class AppSettings
 {
-	public int DaysToShow { get; set; } = 3; // 1..7
-	public List<EmailAccount> Accounts { get; set; } = new();
-	public int NotifyMinutes { get; set; } = 5; // minutes before meeting to notify
-	public bool AutoStart { get; set; } = false; // run application at Windows startup
-	public bool QuietOnAutoStart { get; set; } = true; // start minimized to tray on Windows startup
-	public AppTheme Theme { get; set; } = AppTheme.Light;
+    public int DaysToShow { get; set; } = 3; // 1..7
+    public List<EmailAccount> Accounts { get; set; } = new();
+    public int NotifyMinutes { get; set; } = 5; // minutes before meeting to notify
+    public bool AutoStart { get; set; } = false; // run application at Windows startup
+    public bool QuietOnAutoStart { get; set; } = true; // start minimized to a tray on Windows startup
+    public AppTheme Theme { get; set; } = AppTheme.Light;
 }
 
 public interface ISettingsStore
 {
-	Task<AppSettings> LoadAsync();
-	Task SaveAsync(AppSettings settings);
+    Task<AppSettings> LoadAsync();
+    Task SaveAsync(AppSettings settings);
 }
 
 public sealed class JsonSettingsStore : ISettingsStore
 {
-	private readonly string _filePath;
-	private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
-	{
-		WriteIndented = true
-	};
+    private readonly string _filePath;
 
-	public JsonSettingsStore(string filePath)
-	{
-		_filePath = filePath;
-	}
+    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
 
-	public async Task<AppSettings> LoadAsync()
-	{
-		if (!File.Exists(_filePath))
-		{
-			return new AppSettings();
-		}
-		await using var stream = new FileStream(
-			_filePath,
-			FileMode.Open,
-			FileAccess.Read,
-			FileShare.ReadWrite | FileShare.Delete);
-		var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, Options);
-		return settings ?? new AppSettings();
-	}
+    public JsonSettingsStore(string filePath)
+    {
+        _filePath = filePath;
+    }
 
-	public async Task SaveAsync(AppSettings settings)
-	{
-		var dir = Path.GetDirectoryName(_filePath);
-		if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-		{
-			Directory.CreateDirectory(dir);
-		}
-		var tempPath = _filePath + ".tmp";
-		await using (var tmp = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
-		{
-			await JsonSerializer.SerializeAsync(tmp, settings, Options);
-			await tmp.FlushAsync();
-		}
-		try
-		{
-			if (File.Exists(_filePath))
-			{
-				File.Replace(tempPath, _filePath, null);
-			}
-			else
-			{
-				File.Move(tempPath, _filePath);
-			}
-		}
-		finally
-		{
-			if (File.Exists(tempPath))
-			{
-				try { File.Delete(tempPath); } catch { }
-			}
-		}
-	}
+    public async Task<AppSettings> LoadAsync()
+    {
+        if (!File.Exists(_filePath))
+        {
+            return new AppSettings();
+        }
+
+        await using var stream = new FileStream(
+            _filePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, Options);
+        return settings ?? new AppSettings();
+    }
+
+    public async Task SaveAsync(AppSettings settings)
+    {
+        var dir = Path.GetDirectoryName(_filePath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        var tempPath = _filePath + ".tmp";
+        await using (var tmp = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            await JsonSerializer.SerializeAsync(tmp, settings, Options);
+            await tmp.FlushAsync();
+        }
+
+        try
+        {
+            if (File.Exists(_filePath))
+            {
+                File.Replace(tempPath, _filePath, null);
+            }
+            else
+            {
+                File.Move(tempPath, _filePath);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("Failed to delete temporary settings file", ex);
+                }
+            }
+        }
+    }
 }
-

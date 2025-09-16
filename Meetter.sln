@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meetter.Persistence", "Meet
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meetter.Providers.Google", "Meetter.Providers.Google\Meetter.Providers.Google.csproj", "{AE5897A9-695B-43C7-AA74-A4A3A1122E63}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meetter.App", "Meetter.App\Meetter.App.csproj", "{5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{AE5897A9-695B-43C7-AA74-A4A3A1122E63}.Release|x64.Build.0 = Release|Any CPU
 		{AE5897A9-695B-43C7-AA74-A4A3A1122E63}.Release|x86.ActiveCfg = Release|Any CPU
 		{AE5897A9-695B-43C7-AA74-A4A3A1122E63}.Release|x86.Build.0 = Release|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Debug|x64.ActiveCfg = Debug|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Debug|x64.Build.0 = Debug|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Debug|x86.ActiveCfg = Debug|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Debug|x86.Build.0 = Debug|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Release|Any CPU.Build.0 = Release|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Release|x64.ActiveCfg = Release|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Release|x64.Build.0 = Release|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Release|x86.ActiveCfg = Release|Any CPU
+        {5B2B7D36-8A0B-4C6F-AC3E-3D3DE04E7A9D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -4,15 +4,8 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Calendar.v3;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
-using System;
-using System.Linq;
-using System.Windows.Forms;
-using System.Drawing;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace Meetter.WinForms;
+namespace Meetter.App;
 
 public sealed class SettingsForm : Form
 {
@@ -31,12 +24,13 @@ public sealed class SettingsForm : Form
     {
         _store = store;
         Text = "Settings";
+        Icon = AppIconFactory.CreateIcon();
         StartPosition = FormStartPosition.CenterParent;
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Segoe UI", 9F);
         AutoSize = false;
         AutoSizeMode = AutoSizeMode.GrowOnly;
-        MinimumSize = new Size(640, 420);
+        MinimumSize = new Size(700, 500);
 
         var root = new TableLayoutPanel
         {
@@ -84,7 +78,11 @@ public sealed class SettingsForm : Form
         };
         // no inline edit panel; selection change not used
 
-        var accButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Padding = new Padding(0, 8, 0, 0) };
+        var accButtons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, AutoSize = true,
+            Padding = new Padding(0, 8, 0, 0)
+        };
         _addGoogleBtn = new Button { Text = "Add Google account", AutoSize = true };
         _removeBtn = new Button { Text = "Remove", AutoSize = true };
         _addGoogleBtn.Click += async (_, __) => await OnAddGoogleAccountAsync();
@@ -99,21 +97,24 @@ public sealed class SettingsForm : Form
 
         // General tab
         var tabGeneral = new TabPage("General") { Padding = new Padding(12) };
-        var generalLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 5, AutoSize = true };
+        var generalLayout = new TableLayoutPanel
+            { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 5, AutoSize = true };
         generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        var quietLbl = new Label { Text = "Start minimized on Windows startup:", AutoSize = true, Anchor = AnchorStyles.Left };
+        var quietLbl = new Label
+            { Text = "Start minimized on Windows startup:", AutoSize = true, Anchor = AnchorStyles.Left };
         var quietChk = new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left };
         var lbl = new Label { Text = "Days to show:", AutoSize = true, Anchor = AnchorStyles.Left };
         _days = new NumericUpDown { Width = 100, Minimum = 1, Maximum = 7, Value = 3, Anchor = AnchorStyles.Left };
         generalLayout.Controls.Add(lbl, 0, 0);
         generalLayout.Controls.Add(_days, 1, 0);
         var notifLbl = new Label { Text = "Notify before (min):", AutoSize = true, Anchor = AnchorStyles.Left };
-        var notifNum = new NumericUpDown { Width = 100, Minimum = 0, Maximum = 120, Value = 5, Anchor = AnchorStyles.Left };
+        var notifNum = new NumericUpDown
+            { Width = 100, Minimum = 0, Maximum = 120, Value = 5, Anchor = AnchorStyles.Left };
         generalLayout.Controls.Add(notifLbl, 0, 1);
         generalLayout.Controls.Add(notifNum, 1, 1);
         var autoLbl = new Label { Text = "Run at Windows startup:", AutoSize = true, Anchor = AnchorStyles.Left };
@@ -153,7 +154,14 @@ public sealed class SettingsForm : Form
             s.AutoStart = _autoStart.Checked;
             s.QuietOnAutoStart = quietChk.Checked;
             await _store.SaveAsync(s);
-            try { AutoStartManager.SetAutoStart(s.AutoStart, s.QuietOnAutoStart); } catch { }
+            try
+            {
+                AutoStartManager.SetAutoStart(s.AutoStart, s.QuietOnAutoStart);
+            }
+            catch
+            {
+            }
+
             Close();
         };
 
@@ -178,38 +186,52 @@ public sealed class SettingsForm : Form
     {
         try
         {
-            var tempTokenDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Meetter", "google-temp-" + Guid.NewGuid().ToString("N"));
+            AppLogger.Info("AddGoogle: start");
+            var tempTokenDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Meetter", "google-temp-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempTokenDir);
 
             UserCredential credential;
             var secrets = GoogleOAuthConfig.GetClientSecrets();
+            AppLogger.Info(
+                $"AddGoogle: secrets present id={(secrets.ClientId?.Length ?? 0)} secret={(secrets.ClientSecret?.Length ?? 0)}");
             credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
                 secrets, new[] { CalendarService.Scope.CalendarReadonly }, "user", CancellationToken.None,
                 new FileDataStore(tempTokenDir, true));
 
+            AppLogger.Info("AddGoogle: authorized");
             using var service = new CalendarService(new BaseClientService.Initializer
             {
                 HttpClientInitializer = credential,
                 ApplicationName = "Meetter",
             });
+            AppLogger.Info("AddGoogle: calendar service created");
             var list = await service.CalendarList.List().ExecuteAsync();
+            AppLogger.Info($"AddGoogle: calendars fetched count={(list.Items?.Count ?? 0)}");
             var primary = list.Items?.FirstOrDefault(i => i.Primary == true) ?? list.Items?.FirstOrDefault();
             if (primary == null || string.IsNullOrWhiteSpace(primary.Id))
             {
-                MessageBox.Show(this, "Failed to determine account email", "Add account", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, "Failed to determine account email", "Add account", MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
+
             var email = primary.Id;
-            var finalTokenDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Meetter", "google", email);
+            var finalTokenDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Meetter", "google", email);
             Directory.CreateDirectory(Path.GetDirectoryName(finalTokenDir)!);
             if (Directory.Exists(finalTokenDir)) Directory.Delete(finalTokenDir, true);
             Directory.Move(tempTokenDir, finalTokenDir);
 
-            if (_accounts.Any(a => a.ProviderId == GoogleCalendarProvider.ProviderKey && a.Email.Equals(email, StringComparison.OrdinalIgnoreCase)))
+            if (_accounts.Any(a =>
+                    a.ProviderId == GoogleCalendarProvider.ProviderKey &&
+                    a.Email.Equals(email, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show(this, "This account is already added", "Add account", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, "This account is already added", "Add account", MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 return;
             }
+
             _accounts.Add(new EmailAccount
             {
                 ProviderId = GoogleCalendarProvider.ProviderKey,
@@ -220,9 +242,11 @@ public sealed class SettingsForm : Form
             });
             _accountsSource.ResetBindings(false);
             RefreshAccountsList();
+            AppLogger.Info($"AddGoogle: done {email}");
         }
         catch (Exception ex)
         {
+            AppLogger.Error("AddGoogle: failed", ex);
             MessageBox.Show(this, ex.Message, "Failed to add account", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
@@ -250,12 +274,12 @@ public sealed class SettingsForm : Form
             item.SubItems.Add(a.DisplayName);
             _accountsList.Items.Add(item);
         }
+
         for (int i = 0; i < _accountsList.Columns.Count; i++)
         {
             _accountsList.AutoResizeColumn(i, ColumnHeaderAutoResizeStyle.ColumnContent);
         }
+
         _accountsList.EndUpdate();
     }
-
 }
-

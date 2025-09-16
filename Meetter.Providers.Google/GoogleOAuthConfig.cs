@@ -10,5 +10,3 @@ public static class GoogleOAuthConfig
         ClientSecret = GoogleSecrets.ClientSecret
     };
 }
-
-

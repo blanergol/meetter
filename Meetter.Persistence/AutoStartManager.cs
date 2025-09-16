@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.Versioning;
 using Microsoft.Win32;
 
@@ -36,8 +35,7 @@ public static class AutoStartManager
         try
         {
             using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true)
-                           ?? Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true);
-            if (key == null) return;
+                            ?? Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true);
             if (enabled)
             {
                 var exePath = Environment.ProcessPath ?? string.Empty;
@@ -59,5 +57,3 @@ public static class AutoStartManager
 
     private static string Normalize(string path) => path.Trim().Trim('"');
 }
-
-

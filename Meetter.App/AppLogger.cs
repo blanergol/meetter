@@ -1,14 +1,15 @@
-using System;
-using System.IO;
 using System.Text;
-using System.Threading;
+using System.Diagnostics.CodeAnalysis;
 
-namespace Meetter.WinForms;
+namespace Meetter.App;
 
 internal static class AppLogger
 {
-    private static readonly object _sync = new object();
-    private static string _logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Meetter", "logs");
+    private static readonly object Sync = new object();
+
+    private static string _logDirectory =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Meetter", "logs");
+
     private static string _logFilePath = Path.Combine(_logDirectory, "app.log");
     private static long _maxBytes = 1 * 1024 * 1024; // 1 MB
     private static int _retainedFiles = 3;
@@ -18,13 +19,14 @@ internal static class AppLogger
 
     public static void Configure(string? directory = null, long? maxBytes = null, int? retainedFiles = null)
     {
-        lock (_sync)
+        lock (Sync)
         {
             if (!string.IsNullOrWhiteSpace(directory))
             {
-                _logDirectory = directory!;
+                _logDirectory = directory;
                 _logFilePath = Path.Combine(_logDirectory, "app.log");
             }
+
             if (maxBytes.HasValue) _maxBytes = Math.Max(64 * 1024, maxBytes.Value);
             if (retainedFiles.HasValue) _retainedFiles = Math.Max(1, retainedFiles.Value);
             Directory.CreateDirectory(_logDirectory);
@@ -37,16 +39,19 @@ internal static class AppLogger
     public static void Error(string message, Exception? ex = null) => Write("ERROR", message, ex);
     public static void Debug(string message) => Write("DEBUG", message, null);
 
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "Logging must never throw")]
     private static void Write(string level, string message, Exception? ex)
     {
         try
         {
-            lock (_sync)
+            lock (Sync)
             {
                 if (!_initialized)
                 {
                     Configure();
                 }
+
                 RotateIfNeeded();
                 var sb = new StringBuilder();
                 var now = DateTimeOffset.Now;
@@ -68,13 +73,19 @@ internal static class AppLogger
                     sb.AppendLine();
                     sb.Append(ex.StackTrace);
                 }
+
                 sb.AppendLine();
                 File.AppendAllText(_logFilePath, sb.ToString(), Encoding.UTF8);
             }
         }
-        catch { /* logging must never throw */ }
+        catch
+        {
+            /* logging must never throw */
+        }
     }
 
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "Logging must never throw")]
     private static void RotateIfNeeded()
     {
         try
@@ -89,12 +100,13 @@ internal static class AppLogger
                 if (File.Exists(dst)) File.Delete(dst);
                 if (File.Exists(src)) File.Move(src, dst);
             }
+
             var first = Path.Combine(_logDirectory, "app.log.1");
             if (File.Exists(first)) File.Delete(first);
             File.Move(_logFilePath, first);
         }
-        catch { }
+        catch
+        {
+        }
     }
 }
-
-

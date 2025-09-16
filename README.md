@@ -3,7 +3,7 @@
 Windows application that aggregates meetings from calendars (Google Calendar, others later), extracts Google Meet/Zoom links, and displays them in a convenient list.
 
 ## Projects
-- `Meetter.WinForms` — main application (WinForms UI)
+- `Meetter.App` — main application (WinForms UI)
 - `Meetter.Core` — models/interfaces/link detectors
 - `Meetter.Persistence` — settings and cache
 - `Meetter.Providers.Google` — Google Calendar provider (OAuth)
@@ -22,13 +22,13 @@ dotnet workload install windowsdesktop
 dotnet restore
 
 # Publish as a single exe (win-x64)
-dotnet publish Meetter.WinForms -c Release -r win-x64 --self-contained true `
+dotnet publish Meetter.App -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:PublishReadyToRun=true -p:DebugType=none `
   -o C:\Apps\Meetter
 
 # Run
-C:\Apps\Meetter\Meetter.WinForms.exe
+C:\Apps\Meetter\Meetter.App.exe
 ```
 
 ## Google OAuth secrets
@@ -43,7 +43,7 @@ Then build/publish as usual:
 
 ```bash
 dotnet build
-dotnet publish Meetter.WinForms -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish Meetter.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
 If variables are not set, values will be empty and authorization will fail.

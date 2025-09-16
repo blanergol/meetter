@@ -1,47 +1,69 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="../Meetter.Core/Meetter.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Google.Apis.Calendar.v3" Version="1.68.0.3473" />
-    <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
-  </ItemGroup>
-
-  <Target Name="GenerateGoogleSecrets" BeforeTargets="BeforeCompile">
     <PropertyGroup>
-      <GoogleClientId>$(GOOGLE_CLIENT_ID)</GoogleClientId>
-      <GoogleClientSecret>$(GOOGLE_CLIENT_SECRET)</GoogleClientSecret>
-      <SecretsDir>$(IntermediateOutputPath)Generated\</SecretsDir>
-      <SecretsFile>$(SecretsDir)GoogleSecrets.g.cs</SecretsFile>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
 
-    <MakeDir Directories="$(SecretsDir)" />
-
     <ItemGroup>
-      <_GeneratedSecretsLines Include="// auto-generated" />
-      <_GeneratedSecretsLines Include="namespace Meetter.Providers.Google" />
-      <_GeneratedSecretsLines Include="{" />
-      <_GeneratedSecretsLines Include="internal static class GoogleSecrets" />
-      <_GeneratedSecretsLines Include="{" />
-      <_GeneratedSecretsLines Include="    internal const string ClientId = &quot;$(GoogleClientId)&quot;%3B" />
-      <_GeneratedSecretsLines Include="    internal const string ClientSecret = &quot;$(GoogleClientSecret)&quot;%3B" />
-      <_GeneratedSecretsLines Include="}" />
-      <_GeneratedSecretsLines Include="}" />
+        <ProjectReference Include="../Meetter.Core/Meetter.Core.csproj" />
     </ItemGroup>
 
-    <WriteLinesToFile File="$(SecretsFile)" Overwrite="true" Lines="@(_GeneratedSecretsLines)" />
+    <ItemGroup>
+        <PackageReference Include="Google.Apis.Calendar.v3" Version="1.68.0.3473" />
+        <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
+    </ItemGroup>
 
     <ItemGroup>
-      <Compile Include="$(SecretsFile)" Visible="false" />
+        <Folder Include="obj\Debug\net9.0\Generated\" />
     </ItemGroup>
-  </Target>
+
+    <Target Name="GenerateGoogleSecrets" BeforeTargets="CoreCompile">
+        <PropertyGroup>
+            <GoogleClientId>$(GOOGLE_CLIENT_ID)</GoogleClientId>
+            <GoogleClientSecret>$(GOOGLE_CLIENT_SECRET)</GoogleClientSecret>
+            <SecretsDir>$(IntermediateOutputPath)Generated\</SecretsDir>
+            <SecretsFile>$(SecretsDir)GoogleSecrets.g.cs</SecretsFile>
+        </PropertyGroup>
+
+        <MakeDir Directories="$(SecretsDir)" />
+
+        <ItemGroup>
+            <_GenLine Include="L0">
+                <Text>// auto-generated</Text>
+            </_GenLine>
+            <_GenLine Include="L1">
+                <Text>namespace Meetter.Providers.Google</Text>
+            </_GenLine>
+            <_GenLine Include="L2">
+                <Text>{</Text>
+            </_GenLine>
+            <_GenLine Include="L3">
+                <Text>internal static class GoogleSecrets</Text>
+            </_GenLine>
+            <_GenLine Include="L4">
+                <Text>{</Text>
+            </_GenLine>
+            <_GenLine Include="L5">
+                <Text>    internal const string ClientId = "$(GoogleClientId)";</Text>
+            </_GenLine>
+            <_GenLine Include="L6">
+                <Text>    internal const string ClientSecret = "$(GoogleClientSecret)";</Text>
+            </_GenLine>
+            <_GenLine Include="L7">
+                <Text>}</Text>
+            </_GenLine>
+            <_GenLine Include="L8">
+                <Text>}</Text>
+            </_GenLine>
+        </ItemGroup>
+
+        <WriteLinesToFile File="$(SecretsFile)" Overwrite="true" Lines="@(_GenLine-&gt;'%(Text)')" />
+
+        <ItemGroup>
+            <Compile Include="$(SecretsFile)" Visible="false" />
+        </ItemGroup>
+    </Target>
 
 </Project>

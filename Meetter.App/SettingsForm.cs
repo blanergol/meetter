@@ -28,8 +28,7 @@ public sealed class SettingsForm : Form
         StartPosition = FormStartPosition.CenterParent;
         AutoScaleMode = AutoScaleMode.Dpi;
         Font = new Font("Segoe UI", 9F);
-        AutoSize = false;
-        AutoSizeMode = AutoSizeMode.GrowOnly;
+        // AutoSize=false и AutoSizeMode=GrowOnly являются значениями по умолчанию — явные присваивания убраны
         MinimumSize = new Size(700, 500);
 
         var root = new TableLayoutPanel
@@ -51,7 +50,7 @@ public sealed class SettingsForm : Form
 
         // Accounts tab
         var tabAccounts = new TabPage("Accounts") { Padding = new Padding(6) };
-        var accLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, AutoSize = false };
+        var accLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
         accLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
         accLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 

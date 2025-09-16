@@ -211,7 +211,7 @@ public sealed class MainForm : Form
                         ? tp
                         : System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                             "Meetter", "google", acc.Email);
-                    providers.Add(new GoogleCalendarProvider(detectors, "Meetter", string.Empty, token));
+                    providers.Add(new GoogleCalendarProvider(detectors, "Meetter", token));
                 }
             }
 

@@ -12,15 +12,12 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
     public const string ProviderKey = "google";
     private readonly IMeetingLinkDetector[] _detectors;
     private readonly string _appName;
-    private readonly string _credentialsPath;
     private readonly string _tokenPath;
 
-    public GoogleCalendarProvider(IMeetingLinkDetector[] detectors, string appName, string credentialsPath,
-        string tokenPath)
+    public GoogleCalendarProvider(IMeetingLinkDetector[] detectors, string appName, string tokenPath)
     {
         _detectors = detectors;
         _appName = appName;
-        _credentialsPath = credentialsPath;
         _tokenPath = tokenPath;
     }
 
@@ -109,7 +106,7 @@ public sealed class GoogleCalendarProvider : ICalendarProvider
                 if (string.IsNullOrWhiteSpace(joinUrl))
                 {
                     Logger.Info($"Google: skip event without link id={ev.Id} cal={calId}");
-                    // if no link found — skip so main list shows only meetings with providers
+                    // if no link found — skip so the main list shows only meetings with providers
                     continue;
                 }
 

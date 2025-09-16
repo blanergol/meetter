@@ -20,6 +20,7 @@ public sealed class AppSettings
 	public int DaysToShow { get; set; } = 3; // 1..7
 	public List<EmailAccount> Accounts { get; set; } = new();
     public int NotifyMinutes { get; set; } = 5; // минуты до встречи для уведомления
+	public bool AutoStart { get; set; } = false; // запускать приложение при старте Windows
 }
 
 public interface ISettingsStore
@@ -47,7 +48,11 @@ public sealed class JsonSettingsStore : ISettingsStore
 		{
 			return new AppSettings();
 		}
-		await using var stream = File.OpenRead(_filePath);
+		await using var stream = new FileStream(
+			_filePath,
+			FileMode.Open,
+			FileAccess.Read,
+			FileShare.ReadWrite | FileShare.Delete);
 		var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, Options);
 		return settings ?? new AppSettings();
 	}
@@ -59,8 +64,30 @@ public sealed class JsonSettingsStore : ISettingsStore
 		{
 			Directory.CreateDirectory(dir);
 		}
-		await using var stream = File.Create(_filePath);
-		await JsonSerializer.SerializeAsync(stream, settings, Options);
+		var tempPath = _filePath + ".tmp";
+		await using (var tmp = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+		{
+			await JsonSerializer.SerializeAsync(tmp, settings, Options);
+			await tmp.FlushAsync();
+		}
+		try
+		{
+			if (File.Exists(_filePath))
+			{
+				File.Replace(tempPath, _filePath, null);
+			}
+			else
+			{
+				File.Move(tempPath, _filePath);
+			}
+		}
+		finally
+		{
+			if (File.Exists(tempPath))
+			{
+				try { File.Delete(tempPath); } catch { }
+			}
+		}
 	}
 }
 

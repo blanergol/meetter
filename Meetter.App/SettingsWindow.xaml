@@ -50,6 +50,14 @@
                             <ComboBoxItem Content="7"/>
                         </ComboBox>
                     </StackPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,10,0,0">
+                        <TextBlock Text="Уведомлять за (мин):" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBox Name="NotifyMinutesBox" Width="120"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBlock Text="Запускать при старте Windows:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <CheckBox Name="AutoStartCheck"/>
+                    </StackPanel>
                 </StackPanel>
             </TabItem>
         </TabControl>

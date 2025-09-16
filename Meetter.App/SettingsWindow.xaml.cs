@@ -34,6 +34,8 @@ public partial class SettingsWindow : Window
 			foreach (var a in _settings.Accounts) Accounts.Add(a);
 			AccountsList.ItemsSource = Accounts;
 			DaysCombo.SelectedIndex = Math.Clamp(_settings.DaysToShow, 1, 7) - 1;
+			NotifyMinutesBox.Text = Math.Clamp(_settings.NotifyMinutes, 0, 120).ToString();
+			AutoStartCheck.IsChecked = _settings.AutoStart || AutoStartManager.IsEnabled();
 		};
 	}
 
@@ -129,7 +131,14 @@ public partial class SettingsWindow : Window
 	{
 		_settings.Accounts = Accounts.ToList();
 		_settings.DaysToShow = DaysCombo.SelectedIndex + 1;
+		if (int.TryParse(NotifyMinutesBox.Text, out var notify))
+		{
+			notify = Math.Clamp(notify, 0, 120);
+			_settings.NotifyMinutes = notify;
+		}
+		_settings.AutoStart = AutoStartCheck.IsChecked == true;
 		await _store.SaveAsync(_settings);
+		try { AutoStartManager.SetAutoStart(_settings.AutoStart); } catch { }
 		DialogResult = true;
 		Close();
 	}

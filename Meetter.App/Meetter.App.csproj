@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
+        <AssemblyName>Meetter</AssemblyName>
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="../Meetter.Core/Meetter.Core.csproj" />

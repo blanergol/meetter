@@ -10,6 +10,16 @@ internal static class Program
         Meetter.Core.Logger.Initialize(AppLogger.Info, AppLogger.Error);
 
         ApplicationConfiguration.Initialize();
+        Application.ApplicationExit += (_, __) =>
+        {
+            try
+            {
+                AppLogger.Info("Application exit");
+            }
+            catch
+            {
+            }
+        };
         try
         {
             var args = Environment.GetCommandLineArgs();

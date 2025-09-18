@@ -47,7 +47,7 @@ public sealed class AboutForm : Form
 
         var lblVersion = new Label
         {
-            Text = "Version 1.0.1",
+            Text = "Version 1.0.2",
             AutoSize = true,
             Margin = new Padding(0, 0, 0, 2)
         };

@@ -2,6 +2,7 @@ using Meetter.Core;
 using Meetter.Persistence;
 using Meetter.Providers.Google;
 using System.Diagnostics;
+using System.Threading;
 
 namespace Meetter.App;
 
@@ -22,6 +23,8 @@ public sealed class MainForm : Form
     private ListViewItem? _hoverItem;
     private static readonly Color HoverBackColor = Color.FromArgb(0xF2, 0xF6, 0xFC);
     private AppSettings? _currentSettings;
+    private bool _isExiting;
+	private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
     public MainForm()
     {
@@ -50,7 +53,11 @@ public sealed class MainForm : Form
                 _ = LoadMeetingsAsync(false);
             }
         });
-        var exitItem = new ToolStripMenuItem("Exit", null, (_, __) => Close());
+        var exitItem = new ToolStripMenuItem("Exit", null, (_, __) =>
+        {
+            _isExiting = true;
+            Application.Exit();
+        });
         file.DropDownItems.Add(settingsItem);
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add(exitItem);
@@ -153,15 +160,59 @@ public sealed class MainForm : Form
         };
         FormClosing += (s, e) =>
         {
-            e.Cancel = true;
-            Hide();
+            // Сворачиваем в трей только при пользовательском закрытии (крестик/Alt+F4)
+            if (!_isExiting && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                Hide();
+                try
+                {
+                    AppLogger.Info("MainForm hide to tray");
+                }
+                catch
+                {
+                }
+                return;
+            }
+
+            // Разрешаем завершение по Exit/завершению приложения/выключению Windows
             try
             {
-                AppLogger.Info("MainForm hide to tray");
+                AppLogger.Info($"MainForm closing (reason={e.CloseReason})");
             }
             catch
             {
             }
+
+			// Отменяем фоновые операции
+			try { _cts.Cancel(); } catch { }
+        };
+
+		FormClosed += (_, __) =>
+        {
+            try
+            {
+                _timer.Stop();
+            }
+            catch { }
+            try
+            {
+                _timer.Dispose();
+            }
+            catch { }
+			try { _cts.Cancel(); } catch { }
+			try { _cts.Dispose(); } catch { }
+            try
+            {
+                _tray.Visible = false;
+                _tray.Dispose();
+            }
+            catch { }
+            try
+            {
+                AppLogger.Info("Resources disposed on exit");
+            }
+            catch { }
         };
 
         // Polling timer for notifications and tray updates
@@ -239,7 +290,7 @@ public sealed class MainForm : Form
                 }
                 else
                 {
-                    items = await aggregator.GetMeetingsAsync(from, to, CancellationToken.None);
+					items = await aggregator.GetMeetingsAsync(from, to, _cts.Token);
                     try
                     {
                         AppLogger.Debug($"Fetched: {items.Count} items");
@@ -253,7 +304,7 @@ public sealed class MainForm : Form
             }
             else
             {
-                items = await aggregator.GetMeetingsAsync(from, to, CancellationToken.None);
+			items = await aggregator.GetMeetingsAsync(from, to, _cts.Token);
                 try
                 {
                     AppLogger.Debug($"Fetched (no cache): {items.Count} items");
@@ -268,17 +319,21 @@ public sealed class MainForm : Form
             BindMeetings(items);
             _lastRefreshUtc = DateTimeOffset.UtcNow;
         }
-        catch (Exception ex)
+		catch (Exception ex)
         {
-            try
-            {
-                AppLogger.Error("LoadMeetings failed", ex);
-            }
-            catch
-            {
-            }
+			var isCanceled = ex is OperationCanceledException;
+			if (!(_isExiting || isCanceled))
+			{
+				try
+				{
+					AppLogger.Error("LoadMeetings failed", ex);
+				}
+				catch
+				{
+				}
 
-            MessageBox.Show(ex.Message, "Load error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				MessageBox.Show(ex.Message, "Load error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
         }
         finally
         {
@@ -503,14 +558,7 @@ public sealed class MainForm : Form
         });
         var exit = new ToolStripMenuItem("Exit", null, (_, __) =>
         {
-            try
-            {
-                _tray.Visible = false;
-            }
-            catch
-            {
-            }
-
+            _isExiting = true;
             Application.Exit();
         });
         menu.Items.Add(settings);

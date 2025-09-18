@@ -11,6 +11,7 @@ public sealed class SettingsForm : Form
 {
     private readonly ISettingsStore _store;
     private NumericUpDown _days;
+    private NumericUpDown _afterStartNum;
     private Button _ok;
     private Button _cancel;
     private BindingSource _accountsSource = new();
@@ -97,9 +98,10 @@ public sealed class SettingsForm : Form
         // General tab
         var tabGeneral = new TabPage("General") { Padding = new Padding(12) };
         var generalLayout = new TableLayoutPanel
-            { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 5, AutoSize = true };
+            { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 6, AutoSize = true };
         generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         generalLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         generalLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -116,12 +118,16 @@ public sealed class SettingsForm : Form
             { Width = 100, Minimum = 0, Maximum = 120, Value = 5, Anchor = AnchorStyles.Left };
         generalLayout.Controls.Add(notifLbl, 0, 1);
         generalLayout.Controls.Add(notifNum, 1, 1);
+        var afterStartLbl = new Label { Text = "Keep started (min):", AutoSize = true, Anchor = AnchorStyles.Left };
+        _afterStartNum = new NumericUpDown { Width = 100, Minimum = 0, Maximum = 120, Value = 5, Anchor = AnchorStyles.Left };
+        generalLayout.Controls.Add(afterStartLbl, 0, 2);
+        generalLayout.Controls.Add(_afterStartNum, 1, 2);
         var autoLbl = new Label { Text = "Run at Windows startup:", AutoSize = true, Anchor = AnchorStyles.Left };
         _autoStart = new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left };
-        generalLayout.Controls.Add(autoLbl, 0, 2);
-        generalLayout.Controls.Add(_autoStart, 1, 2);
-        generalLayout.Controls.Add(quietLbl, 0, 3);
-        generalLayout.Controls.Add(quietChk, 1, 3);
+        generalLayout.Controls.Add(autoLbl, 0, 3);
+        generalLayout.Controls.Add(_autoStart, 1, 3);
+        generalLayout.Controls.Add(quietLbl, 0, 4);
+        generalLayout.Controls.Add(quietChk, 1, 4);
         tabGeneral.Controls.Add(generalLayout);
 
         tabs.TabPages.Add(tabAccounts);
@@ -149,6 +155,7 @@ public sealed class SettingsForm : Form
             var s = await _store.LoadAsync();
             s.DaysToShow = (int)_days.Value;
             s.NotifyMinutes = (int)notifNum.Value;
+            s.MinutesShowAfterStart = (int)_afterStartNum.Value;
             s.Accounts = _accounts.ToList();
             s.AutoStart = _autoStart.Checked;
             s.QuietOnAutoStart = quietChk.Checked;
@@ -173,6 +180,7 @@ public sealed class SettingsForm : Form
             var s = await _store.LoadAsync();
             _days.Value = Math.Clamp(s.DaysToShow, 1, 7);
             notifNum.Value = Math.Clamp(s.NotifyMinutes, 0, 120);
+            _afterStartNum.Value = Math.Clamp(s.MinutesShowAfterStart, 0, 120);
             _autoStart.Checked = s.AutoStart || AutoStartManager.IsEnabled();
             quietChk.Checked = s.QuietOnAutoStart;
             _accounts = s.Accounts.ToList();

@@ -17,9 +17,11 @@ public sealed class MainForm : Form
     private readonly System.Windows.Forms.Timer _timer;
     private IReadOnlyList<Meeting> _lastMeetings = Array.Empty<Meeting>();
     private readonly HashSet<string> _notifiedMeetings = new HashSet<string>(StringComparer.Ordinal);
+    private readonly HashSet<string> _startedNotified = new HashSet<string>(StringComparer.Ordinal);
     private DateTimeOffset _lastRefreshUtc = DateTimeOffset.MinValue;
     private ListViewItem? _hoverItem;
     private static readonly Color HoverBackColor = Color.FromArgb(0xF2, 0xF6, 0xFC);
+    private AppSettings? _currentSettings;
 
     public MainForm()
     {
@@ -201,6 +203,7 @@ public sealed class MainForm : Form
             _loader.Visible = true;
             _refresh.Enabled = false;
             var settings = await _settingsStore.LoadAsync();
+            _currentSettings = settings;
             var detectors = new IMeetingLinkDetector[] { new GoogleMeetLinkDetector(), new ZoomLinkDetector() };
             var providers = new List<ICalendarProvider>();
             foreach (var acc in settings.Accounts.Where(a => a.Enabled))
@@ -300,10 +303,19 @@ public sealed class MainForm : Form
         _hoverItem = null;
         // Group by dates — insert visual header rows
         var now = DateTimeOffset.Now;
+        var grace = TimeSpan.FromMinutes(Math.Max(0, _currentSettings?.MinutesShowAfterStart ?? 5));
         var groups = items.GroupBy(m => m.StartTime.Date).OrderBy(g => g.Key);
         foreach (var g in groups)
         {
-            var dayMeetings = g.Key == now.Date ? g.Where(m => m.StartTime >= now).ToList() : g.ToList();
+            List<Meeting> dayMeetings;
+            if (g.Key == now.Date)
+            {
+                dayMeetings = g.Where(m => ShouldShowToday(m, now, grace)).ToList();
+            }
+            else
+            {
+                dayMeetings = g.ToList();
+            }
             if (dayMeetings.Count == 0) continue;
             var header = g.Key == now.Date ? "Today" : g.Key.ToString("dddd, dd.MM.yyyy");
             var groupItem = new ListViewItem(new[] { header, "", "" })
@@ -384,6 +396,13 @@ public sealed class MainForm : Form
                     ShowToast($"Upcoming meeting: {m.Title}", m.JoinUrl!);
                     _notifiedMeetings.Add(key);
                 }
+
+                // Notify exactly at start (once)
+                if (!_startedNotified.Contains(key) && delta <= TimeSpan.Zero && delta > TimeSpan.FromMinutes(-1))
+                {
+                    ShowToast($"Meeting started: {m.Title}", m.JoinUrl!);
+                    _startedNotified.Add(key);
+                }
             }
         }
         catch
@@ -428,13 +447,23 @@ public sealed class MainForm : Form
     {
         var menu = new ContextMenuStrip();
         var today = now.Date;
-        var upcoming = _lastMeetings.Where(m => m.StartTime > now).OrderBy(m => m.StartTime).FirstOrDefault();
-        foreach (var m in _lastMeetings.Where(m => m.StartTime.Date == today && m.StartTime > now))
+        var grace = TimeSpan.FromMinutes(Math.Max(0, _currentSettings?.MinutesShowAfterStart ?? 5));
+        var todayVisible = _lastMeetings
+            .Where(m => m.StartTime.Date == today && ShouldShowToday(m, now, grace))
+            .OrderBy(m => m.StartTime)
+            .ToList();
+        var highlight = todayVisible.FirstOrDefault();
+        foreach (var m in todayVisible)
         {
             var title = m.Title.Length > 30 ? m.Title.Substring(0, 30) + "…" : m.Title;
-            var isUpcoming = upcoming != null && ReferenceEquals(m, upcoming);
-            var remaining = isUpcoming ? FormatRemaining(m.StartTime - now) : null;
-            var display = isUpcoming && remaining != null ? $"{title} ({remaining})" : title;
+            var isOngoing = IsOngoingForLabel(m, now, grace);
+            var isHighlight = highlight != null && ReferenceEquals(m, highlight);
+            string? right = null;
+            if (isHighlight)
+            {
+                right = isOngoing ? "Уже идет" : FormatRemaining(m.StartTime - now);
+            }
+            var display = right != null ? $"{title} ({right})" : title;
             var mi = new ToolStripMenuItem(display) { ToolTipText = m.Title };
             var url = m.JoinUrl;
             mi.Click += (_, __) =>
@@ -450,9 +479,9 @@ public sealed class MainForm : Form
                     }
                 }
             };
-            if (isUpcoming && remaining != null)
+            if (right != null)
             {
-                mi.Tag = new BoldParts { Left = title + " ", Right = "(" + remaining + ")" };
+                mi.Tag = new BoldParts { Left = title + " ", Right = "(" + right + ")" };
             }
 
             menu.Items.Add(mi);
@@ -497,21 +526,46 @@ public sealed class MainForm : Form
     {
         try
         {
-            var upcoming = _lastMeetings.Where(m => m.StartTime > now).OrderBy(m => m.StartTime).FirstOrDefault();
-            if (upcoming != null)
+            var grace = TimeSpan.FromMinutes(Math.Max(0, _currentSettings?.MinutesShowAfterStart ?? 5));
+            var ongoing = _lastMeetings.FirstOrDefault(m => IsOngoingForLabel(m, now, grace));
+            if (ongoing != null)
             {
-                var remaining = FormatRemaining(upcoming.StartTime - now);
-                _tray.Text = $"Meetter — через {remaining} до встречи";
+                _tray.Text = "Meetter — Уже идет";
             }
             else
             {
-                _tray.Text = "Meetter";
+                var upcoming = _lastMeetings.Where(m => m.StartTime > now).OrderBy(m => m.StartTime)
+                    .FirstOrDefault();
+                if (upcoming != null)
+                {
+                    var remaining = FormatRemaining(upcoming.StartTime - now);
+                    _tray.Text = $"Meetter — через {remaining} до встречи";
+                }
+                else
+                {
+                    _tray.Text = "Meetter";
+                }
             }
         }
         catch
         {
             _tray.Text = "Meetter";
         }
+    }
+
+    private static bool ShouldShowToday(Meeting m, DateTimeOffset now, TimeSpan grace)
+    {
+        if (m.StartTime >= now) return true;
+        if (m.EndTime.HasValue && m.EndTime.Value >= now) return true;
+        if (!m.EndTime.HasValue && now >= m.StartTime && now - m.StartTime <= grace) return true;
+        return false;
+    }
+
+    private static bool IsOngoingForLabel(Meeting m, DateTimeOffset now, TimeSpan grace)
+    {
+        if (now < m.StartTime) return false;
+        if (m.EndTime.HasValue) return now <= m.EndTime.Value;
+        return now - m.StartTime <= grace;
     }
 
     private sealed class BoldParenRenderer : ToolStripProfessionalRenderer

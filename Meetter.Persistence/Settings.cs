@@ -23,6 +23,7 @@ public sealed class AppSettings
     public int DaysToShow { get; set; } = 3; // 1..7
     public List<EmailAccount> Accounts { get; set; } = new();
     public int NotifyMinutes { get; set; } = 5; // minutes before meeting to notify
+    public int MinutesShowAfterStart { get; set; } = 5; // keep started meetings for N more minutes
     public bool AutoStart { get; set; } = false; // run application at Windows startup
     public bool QuietOnAutoStart { get; set; } = true; // start minimized to a tray on Windows startup
     public AppTheme Theme { get; set; } = AppTheme.Light;

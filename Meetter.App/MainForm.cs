@@ -255,7 +255,8 @@ public sealed class MainForm : Form
             _refresh.Enabled = false;
             var settings = await _settingsStore.LoadAsync();
             _currentSettings = settings;
-            var detectors = new IMeetingLinkDetector[] { new GoogleMeetLinkDetector(), new ZoomLinkDetector() };
+            var detectors = new IMeetingLinkDetector[]
+                { new GoogleMeetLinkDetector(), new ZoomLinkDetector(), new RedMadRobotMeetLinkDetector() };
             var providers = new List<ICalendarProvider>();
             foreach (var acc in settings.Accounts.Where(a => a.Enabled))
             {
@@ -332,7 +333,6 @@ public sealed class MainForm : Form
 				{
 				}
 
-				MessageBox.Show(ex.Message, "Load error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
         }
         finally

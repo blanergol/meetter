@@ -218,8 +218,7 @@ public sealed class SettingsForm : Form
             var primary = list.Items?.FirstOrDefault(i => i.Primary == true) ?? list.Items?.FirstOrDefault();
             if (primary == null || string.IsNullOrWhiteSpace(primary.Id))
             {
-                MessageBox.Show(this, "Failed to determine account email", "Add account", MessageBoxButtons.OK,
-                    MessageBoxIcon.Warning);
+                AppLogger.Warn("AddGoogle: failed to determine account email");
                 return;
             }
 
@@ -254,7 +253,6 @@ public sealed class SettingsForm : Form
         catch (Exception ex)
         {
             AppLogger.Error("AddGoogle: failed", ex);
-            MessageBox.Show(this, ex.Message, "Failed to add account", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 

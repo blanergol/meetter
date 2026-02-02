@@ -6,7 +6,8 @@ public enum MeetingProviderType
 {
     Unknown = 0,
     GoogleMeet = 1,
-    Zoom = 2
+    Zoom = 2,
+    RedMadRobotMeet = 3
 }
 
 [SuppressMessage("ReSharper", "UnusedMember.Global")]
@@ -63,5 +64,4 @@ public sealed class MeetingsAggregator : IMeetingsAggregator
         return result;
     }
 }
-
 

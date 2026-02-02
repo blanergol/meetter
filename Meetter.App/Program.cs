@@ -34,15 +34,6 @@ internal static class Program
         catch (Exception ex)
         {
             AppLogger.Error("Fatal UI exception", ex);
-
-            try
-            {
-                MessageBox.Show(ex.ToString(), "Fatal error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            catch (Exception uiEx)
-            {
-                System.Diagnostics.Debug.WriteLine(uiEx.ToString());
-            }
         }
     }
 }

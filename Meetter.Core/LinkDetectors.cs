@@ -87,3 +87,33 @@ public sealed class ZoomLinkDetector : IMeetingLinkDetector
         return false;
     }
 }
+
+public sealed class RedMadRobotMeetLinkDetector : IMeetingLinkDetector
+{
+    private static readonly Regex RedMadRobotRegex =
+        new(@"https?:\/\/meet\.redmadrobot\.com\/[^\s]+", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    public MeetingProviderType ProviderType => MeetingProviderType.RedMadRobotMeet;
+
+    public bool TryExtractJoinUrl(string text, out string? url)
+    {
+        text = LinkDetectorHelpers.NormalizeText(text);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            url = null;
+            return false;
+        }
+
+        var match = RedMadRobotRegex.Match(text);
+        if (match.Success)
+        {
+            url = match.Value.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                ? match.Value
+                : "https://" + match.Value;
+            return true;
+        }
+
+        url = null;
+        return false;
+    }
+}

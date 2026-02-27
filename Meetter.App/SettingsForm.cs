@@ -159,14 +159,16 @@ public sealed class SettingsForm : Form
             s.Accounts = _accounts.ToList();
             s.AutoStart = _autoStart.Checked;
             s.QuietOnAutoStart = quietChk.Checked;
-            await _store.SaveAsync(s);
             try
             {
-                AutoStartManager.SetAutoStart(s.AutoStart, s.QuietOnAutoStart);
+                await AutoStartManager.SetAutoStartAsync(s.AutoStart, s.QuietOnAutoStart);
             }
             catch
             {
             }
+
+            s.AutoStart = await AutoStartManager.IsEnabledAsync();
+            await _store.SaveAsync(s);
 
             Close();
         };
@@ -181,7 +183,7 @@ public sealed class SettingsForm : Form
             _days.Value = Math.Clamp(s.DaysToShow, 1, 7);
             notifNum.Value = Math.Clamp(s.NotifyMinutes, 0, 120);
             _afterStartNum.Value = Math.Clamp(s.MinutesShowAfterStart, 0, 120);
-            _autoStart.Checked = s.AutoStart || AutoStartManager.IsEnabled();
+            _autoStart.Checked = await AutoStartManager.IsEnabledAsync();
             quietChk.Checked = s.QuietOnAutoStart;
             _accounts = s.Accounts.ToList();
             _accountsSource.DataSource = _accounts;

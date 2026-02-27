@@ -80,6 +80,24 @@ File: `%APPDATA%/Meetter/settings.json`
 - List grouped by dates: “Today” for current, then dates. There is a loader during loading.
 - Clicking a meeting opens the link in the browser/client.
 
+## Microsoft Store (MSIX) autostart
+- Unpackaged EXE uses registry key `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+- Packaged (MSIX/Store) app uses `Windows.ApplicationModel.StartupTask` and requires `windows.startupTask` in `Package.appxmanifest`.
+- Task id in manifest must be exactly `MeetterStartupTask`.
+
+Manifest snippet:
+```xml
+<Applications>
+  <Application ...>
+    <Extensions>
+      <desktop:Extension Category="windows.startupTask" Executable="Meetter.exe" EntryPoint="Windows.FullTrustApplication">
+        <desktop:StartupTask TaskId="MeetterStartupTask" Enabled="false" DisplayName="Meetter" />
+      </desktop:Extension>
+    </Extensions>
+  </Application>
+</Applications>
+```
+
 ## Troubleshooting
 - For the “Calendar API disabled/Forbidden” error: enable Google Calendar API for the GCP project used by the app, wait 2–5 minutes, and sign in again.
 - To re-authorize, delete the token folder `%APPDATA%/Meetter/google/<email>` and add the account again.

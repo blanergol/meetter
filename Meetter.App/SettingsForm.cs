@@ -233,8 +233,7 @@ public sealed class SettingsForm : Form
                     a.ProviderId == GoogleCalendarProvider.ProviderKey &&
                     a.Email.Equals(email, StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show(this, "This account is already added", "Add account", MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                AppLogger.Warn($"AddGoogle: account already added ({email})");
                 return;
             }
 
